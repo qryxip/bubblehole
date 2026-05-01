@@ -81,8 +81,8 @@ runServer = do
       Right () -> pass
 
 handleOne :: (Handle, Handle) -> IO ()
-handleOne (hIn, hOut) = do
-  result <- try @IOException (BS.hGetLine hIn)
+handleOne (hI, hO) = do
+  result <- try @IOException (BS.hGetLine hI)
   case result of
     Left ex | isEOFError ex -> pass
     Left ex -> throwIO ex
@@ -90,9 +90,9 @@ handleOne (hIn, hOut) = do
       resp <- case A.eitherDecodeStrict reqLine of
         Left e -> pure $ Response 1 "" (T.pack ("invalid request: " <> e))
         Right req -> processRequest req
-      BSL.hPut hOut (A.encode resp)
-      BSL.hPut hOut "\n"
-      hFlush hOut
+      BSL.hPut hO (A.encode resp)
+      BSL.hPut hO "\n"
+      hFlush hO
 
 processRequest :: Request -> IO Response
 processRequest (Request c as) =
@@ -104,27 +104,27 @@ processRequest (Request c as) =
     else pure $ Response 1 "" "please run outside the Claude sandbox"
 
 runClient :: [String] -> IO ()
-runClient ghArgs = do
+runClient as = do
   authResult <- try @SomeException (readProcessWithExitCode "gh" ["auth", "status"] "")
   case authResult of
-    Right (ExitSuccess, _, _) -> runDirect ghArgs
-    _ -> runViaIpc ghArgs
+    Right (ExitSuccess, _, _) -> runDirect as
+    _ -> runViaIpc as
 
 runDirect :: [String] -> IO ()
-runDirect ghArgs = do
-  (_, _, _, ph) <- createProcess (proc "gh" ghArgs)
+runDirect as = do
+  (_, _, _, ph) <- createProcess (proc "gh" as)
   code <- waitForProcess ph
   exitWith code
 
 runViaIpc :: [String] -> IO ()
-runViaIpc ghArgs = do
+runViaIpc as = do
   cwdPath <- getCurrentDirectory
-  (hIn, hOut) <- clientConnect
-  let req = Request (T.pack cwdPath) (map T.pack ghArgs)
-  BSL.hPut hOut (A.encode req)
-  BSL.hPut hOut "\n"
-  hFlush hOut
-  respLine <- BS.hGetLine hIn
+  (hI, hO) <- clientConnect
+  let r = Request (T.pack cwdPath) (map T.pack as)
+  BSL.hPut hO (A.encode r)
+  BSL.hPut hO "\n"
+  hFlush hO
+  respLine <- BS.hGetLine hI
   case A.eitherDecodeStrict respLine of
     Left e -> do
       TIO.hPutStrLn stderr (T.pack ("invalid response: " <> e))

@@ -10,12 +10,16 @@ import Relude
 data Opts = Server | Client [String]
 
 opts :: ParserInfo Opts
-opts = info (subparser cs <**> helper) (fullDesc <> progDesc "Read-only gh proxy over a named pipe")
+opts = info (subparser cmds <**> helper) (fullDesc <> progDesc desc)
   where
-    cs =
-      command "server" (info (pure Server) (progDesc "Run the proxy daemon"))
-        <> command "client" (info clientP (progDesc "Forward args to gh through the daemon" <> forwardOptions))
-    clientP = Client <$> many (strArgument (metavar "GH_ARGS..."))
+    desc = "Read-only gh proxy over a named pipe"
+    cmds =
+      command "server" (info serverCmd (progDesc serverDesc))
+        <> command "client" (info clientCmd (progDesc clientDesc <> forwardOptions))
+    serverCmd = pure Server
+    serverDesc = "Run the proxy daemon"
+    clientCmd = Client <$> many (strArgument (metavar "GH_ARGS..."))
+    clientDesc = "Forward args to gh through the daemon"
 
 main :: IO ()
 main =
