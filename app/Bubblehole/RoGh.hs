@@ -80,7 +80,7 @@ runServer = do
         `elem` as
         || "--help"
         `elem` as
-        || apiCase
+        || isGet
         || take 2 as
         == ["repo", "view"]
         || take 2 as
@@ -96,7 +96,7 @@ runServer = do
         || take 2 as
         == ["run", "view"]
       where
-        apiCase = case as of
+        isGet = case as of
           ("api" : rest) -> hasMethodGet rest || not (any isMethodFlag rest)
           _ -> False
         isMethodFlag a = a == "-X" || a == "--method"
@@ -118,14 +118,14 @@ runClient as = do
 
     runViaIpc :: IO ()
     runViaIpc = do
-      cwdPath <- getCurrentDirectory
+      d <- getCurrentDirectory
       (hI, hO) <- clientConnect
-      let r = Request (T.pack cwdPath) (map T.pack as)
+      let r = Request (T.pack d) (map T.pack as)
       BSL.hPut hO (A.encode r)
       BSL.hPut hO "\n"
       hFlush hO
-      respLine <- BS.hGetLine hI
-      case A.eitherDecodeStrict respLine of
+      l <- BS.hGetLine hI
+      case A.eitherDecodeStrict l of
         Left e -> do
           TIO.hPutStrLn stderr (T.pack ("invalid response: " <> e))
           exitWith (ExitFailure 1)

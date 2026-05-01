@@ -13,21 +13,21 @@ inPath = "/tmp/bubblehole.in"
 outPath = "/tmp/bubblehole.out"
 
 openFifo :: FilePath -> OpenMode -> IO Handle
-openFifo path mode = openFd path mode defaultFileFlags >>= fdToHandle
+openFifo p m = openFd p m defaultFileFlags >>= fdToHandle
 
 serverServe :: ((Handle, Handle) -> IO ()) -> IO ()
-serverServe handler = do
+serverServe f = do
   mapM_ (\p -> whenM (fileExist p) (removeLink p)) [inPath, outPath]
   let mode = unionFileModes ownerReadMode ownerWriteMode
   createNamedPipe inPath mode
   createNamedPipe outPath mode
   forever $ do
-    hIn <- openFifo inPath ReadOnly
-    hOut <- openFifo outPath WriteOnly
-    handler (hIn, hOut) `finally` (hClose hIn >> hClose hOut)
+    hI <- openFifo inPath ReadOnly
+    hO <- openFifo outPath WriteOnly
+    f (hI, hO) `finally` (hClose hI >> hClose hO)
 
 clientConnect :: IO (Handle, Handle)
 clientConnect = do
-  hOut <- openFifo inPath WriteOnly
-  hIn <- openFifo outPath ReadOnly
-  pure (hIn, hOut)
+  hO <- openFifo inPath WriteOnly
+  hI <- openFifo outPath ReadOnly
+  pure (hI, hO)
